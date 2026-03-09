@@ -4,7 +4,7 @@ import time
 
 import numpy as np
 
-from .types import MicroCluster, MapState, EmbeddedConversation
+from .types import MicroCluster, MapState, Snapshot, EmbeddedConversation
 
 
 class Engine:
@@ -54,6 +54,8 @@ class Engine:
         self.potential_clusters: list[MicroCluster] = []
         self.outlier_buffer: list[tuple[np.ndarray, dict]] = []
         self.recent_vectors: list[tuple[np.ndarray, dict]] = []
+        self.snapshots: list[Snapshot] = []
+        self._max_snapshots = 100
         self._step = 0
 
     def ingest(self, conversation: EmbeddedConversation) -> None:
@@ -184,6 +186,24 @@ class Engine:
 
         self.outlier_buffer = []
 
+    def snapshot(self, label: str | None = None) -> Snapshot:
+        """Capture a frozen distribution snapshot for drift detection."""
+        now = time.time()
+        snap = Snapshot(
+            centroids=[mc.centroid.copy() for mc in self.core_clusters],
+            weights=[mc.weight for mc in self.core_clusters],
+            counts=[mc.count for mc in self.core_clusters],
+            n_core=len(self.core_clusters),
+            n_potential=len(self.potential_clusters),
+            n_outliers=len(self.outlier_buffer),
+            timestamp=now,
+            label=label,
+        )
+        self.snapshots.append(snap)
+        if len(self.snapshots) > self._max_snapshots:
+            self.snapshots.pop(0)
+        return snap
+
     @property
     def state(self) -> MapState:
         """Current map state snapshot for lenses."""
@@ -192,6 +212,7 @@ class Engine:
             potential_clusters=list(self.potential_clusters),
             outlier_buffer=list(self.outlier_buffer),
             recent_vectors=list(self.recent_vectors),
+            snapshots=list(self.snapshots),
             dimensions=self.dimensions,
             timestamp=time.time(),
         )
@@ -204,5 +225,6 @@ class Engine:
             "potential_clusters": len(self.potential_clusters),
             "outlier_buffer": len(self.outlier_buffer),
             "recent_vectors": len(self.recent_vectors),
+            "snapshots": len(self.snapshots),
             "total_ingested": self._step,
         }

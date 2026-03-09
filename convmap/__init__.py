@@ -1,4 +1,4 @@
-from .types import Turn, Chunk, Conversation, EmbeddedConversation, MicroCluster, MapState
+from .types import Turn, Chunk, Conversation, EmbeddedConversation, MicroCluster, MapState, Snapshot
 from .embedder import Embedder
 from .engine import Engine
 
@@ -9,6 +9,7 @@ __all__ = [
     "EmbeddedConversation",
     "MicroCluster",
     "MapState",
+    "Snapshot",
     "Embedder",
     "Engine",
 ]

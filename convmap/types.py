@@ -54,6 +54,20 @@ class MicroCluster:
 
 
 @dataclass
+class Snapshot:
+    """A frozen distribution snapshot for drift detection."""
+
+    centroids: list[np.ndarray]
+    weights: list[float]
+    counts: list[int]
+    n_core: int
+    n_potential: int
+    n_outliers: int
+    timestamp: float
+    label: str | None = None
+
+
+@dataclass
 class MapState:
     """Snapshot of the current map state. Read-only for lenses."""
 
@@ -61,5 +75,6 @@ class MapState:
     potential_clusters: list[MicroCluster]
     outlier_buffer: list[tuple[np.ndarray, dict]]
     recent_vectors: list[tuple[np.ndarray, dict]]
+    snapshots: list[Snapshot]
     dimensions: int
     timestamp: float
