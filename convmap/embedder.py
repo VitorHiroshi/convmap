@@ -26,9 +26,13 @@ class Embedder:
         self.window_size = window_size
         self.overlap = overlap
 
+    def embed_text(self, text: str) -> np.ndarray:
+        """Embed a raw text string. Useful for concept queries."""
+        return self.model.encode(text, normalize_embeddings=True)
+
     def embed(self, conversation: Conversation) -> EmbeddedConversation:
         """Embed a conversation into adaptive chunks."""
-        text = self._flatten_turns(conversation.turns)
+        text = self._build_text(conversation)
         chunks = self._adaptive_chunk(text)
 
         texts = [c.text for c in chunks]
@@ -49,7 +53,7 @@ class Embedder:
         all_texts: list[str] = []
 
         for conv in conversations:
-            text = self._flatten_turns(conv.turns)
+            text = self._build_text(conv)
             chunks = self._adaptive_chunk(text)
             all_chunks.append(chunks)
             all_texts.extend(c.text for c in chunks)
@@ -73,9 +77,55 @@ class Embedder:
 
         return results
 
+    def _build_text(self, conversation: Conversation) -> str:
+        """Build embeddable text from turns + metadata.
+
+        Metadata fields like category, summary, and output are folded
+        into the text so they contribute to the embedding without
+        requiring a fixed schema. Timestamps and numeric-only fields
+        are skipped (they don't embed well).
+        """
+        parts = [self._flatten_turns(conversation.turns)]
+
+        meta_text = self._flatten_metadata(conversation.metadata)
+        if meta_text:
+            parts.append(meta_text)
+
+        return "\n".join(parts)
+
     def _flatten_turns(self, turns: list[Turn]) -> str:
         """Concatenate turns with speaker labels preserved."""
         return "\n".join(f"{t.speaker}: {t.text}" for t in turns)
+
+    @staticmethod
+    def _flatten_metadata(metadata: dict) -> str:
+        """Extract embeddable text from metadata.
+
+        Includes string values that carry semantic meaning.
+        Skips timestamps, pure numbers, and IDs.
+        """
+        if not metadata:
+            return ""
+
+        skip_keys = {"id", "timestamp", "created_at", "updated_at", "duration", "call_id"}
+        parts = []
+
+        for key, value in metadata.items():
+            if key.lower() in skip_keys:
+                continue
+            if not isinstance(value, str):
+                continue
+            value = value.strip()
+            if not value:
+                continue
+            # Skip values that are just numbers or IDs
+            if value.replace(".", "").replace("-", "").isdigit():
+                continue
+            if len(value) < 3:
+                continue
+            parts.append(f"{key}: {value}")
+
+        return "\n".join(parts)
 
     def _adaptive_chunk(self, text: str) -> list[Chunk]:
         """Split text into chunks, adapting to conversation length."""
