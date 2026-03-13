@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 
 import numpy as np
 
@@ -53,7 +54,7 @@ class Engine:
         self.core_clusters: list[MicroCluster] = []
         self.potential_clusters: list[MicroCluster] = []
         self.outlier_buffer: list[tuple[np.ndarray, dict]] = []
-        self.recent_vectors: list[tuple[np.ndarray, dict]] = []
+        self.recent_vectors: deque[tuple[np.ndarray, dict]] = deque(maxlen=max_recent)
         self.snapshots: list[Snapshot] = []
         self._max_snapshots = 100
         self._step = 0
@@ -99,6 +100,10 @@ class Engine:
         """Core ingestion: try core → potential → outlier buffer."""
         now = time.time()
 
+        # Auto-inject timestamp if not present
+        if "timestamp" not in metadata and "created_at" not in metadata:
+            metadata = {**metadata, "timestamp": now}
+
         if self._try_merge(vector, self.core_clusters, now):
             pass
         elif self._try_merge(vector, self.potential_clusters, now):
@@ -106,10 +111,8 @@ class Engine:
         else:
             self.outlier_buffer.append((vector, metadata))
 
-        # Bounded recent buffer
+        # Bounded recent buffer (deque maxlen handles eviction)
         self.recent_vectors.append((vector, metadata))
-        if len(self.recent_vectors) > self.max_recent:
-            self.recent_vectors.pop(0)
 
     def _try_merge(
         self, vector: np.ndarray, clusters: list[MicroCluster], now: float

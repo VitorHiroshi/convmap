@@ -20,10 +20,13 @@ dev = [
     "ruff>=0.4",
 ]
 
+[project.scripts]
+convmap = "convmap.cli:main"
+
 [build-system]
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [tool.ruff]
-target-version = "py311"
+target-version = "py39"
 line-length = 100
